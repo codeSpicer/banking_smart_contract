@@ -31,5 +31,15 @@ contract bank {
         Users[msg.sender].balance -= _amount;
     }
 
-    function transfer(address payable _to) external {}
+    function transferTo(address payable _to, uint256 _amount) external {
+        require(_amount > 0 && _amount <= Users[msg.sender].balance);
+        require(Users[msg.sender].exists && Users[_to].exists);
+        _to.transfer(_amount);
+        Users[msg.sender].balance -= _amount;
+        Users[_to].balance += _amount;
+    }
+
+    function balanceOf() public view returns (uint256) {
+        return Users[msg.sender].balance;
+    }
 }
