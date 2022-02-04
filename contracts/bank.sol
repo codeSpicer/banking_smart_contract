@@ -2,7 +2,12 @@
 pragma solidity 0.8.0;
 
 contract bank {
+
     address owner;
+    uint bank_liquidity;
+    uint fees;
+
+    mapping(address => user) public Users;
 
     struct user {
         string name;
@@ -10,57 +15,67 @@ contract bank {
         bool exists;
     }
 
-    uint256 bank_liquidity;
-    uint256 fees;
+    modifier only_owner(){
+        require(msg.sender == owner);
+        _;
+    }
 
-    mapping(address => user) public Users;
+    modifier balance_check(uint _amount){
+        require(_amount > 0 && _amount <= Users[msg.sender].balance);
+        _;
+    }
+
+    modifier user_exists( address _add){
+        require(Users[_add].exists);
+        _;
+    }
 
     constructor() {
         owner = msg.sender;
     }
 
-    function collect_fees(address payable _receiver) public {
-        require(msg.sender == owner);
+    function collect_fees(address payable _receiver) public  only_owner{
         _receiver.transfer(fees);
         fees = 0;
     }
 
-    function show_fees() public view returns (uint256) {
+    function show_fees() public view only_owner returns(uint) {
         return fees;
     }
 
-    function register(string memory _name) public {
+    function register(string memory _name) public{
+        require( Users[msg.sender].exists == false);
         Users[msg.sender] = user(_name, 0, true);
     }
 
-    function deposit(address _receiver) external payable {
-        require(msg.value > 0 && Users[msg.sender].exists);
+    function deposit(address _receiver) external payable user_exists(_receiver){
         Users[_receiver].balance += msg.value;
+        bank_liquidity += msg.value;
     }
 
-    function withdraw(uint256 _amount, address payable _receiver) external {
-        require(_amount > 0 && _amount <= Users[msg.sender].balance);
-        uint256 amt = (_amount * 99) / 100;
-        _receiver.transfer(amt);
-        Users[msg.sender].balance -= amt;
+    function withdraw(uint256 _amount, address payable _to) external balance_check(_amount){
+        uint amt = _amount * 99 / 100;
+        _to.transfer(amt);
+        Users[msg.sender].balance -= _amount;
         fees += _amount - amt;
+        bank_liquidity -= amt;
     }
 
-    function transferTo(address payable _to, uint256 _amount) external {
-        require(_amount > 0 && _amount <= Users[msg.sender].balance);
-        require(Users[msg.sender].exists && Users[_to].exists);
-        uint256 amt = (_amount * 95) / 100;
+    function transferTo(uint256 _amount,address payable _to) external balance_check(_amount){
+        uint amt = _amount * 95 / 100;
         _to.transfer(_amount);
-        Users[msg.sender].balance -= amt;
+        Users[msg.sender].balance -= _amount;
         Users[_to].balance += amt;
         fees += _amount - amt;
+        bank_liquidity -= amt;
     }
 
     function balanceOf() public view returns (uint256) {
         return Users[msg.sender].balance;
     }
 
-    fallback() external {
+    fallback() external{
         revert();
     }
+
 }
